@@ -1,0 +1,17 @@
+# undefined
+            
+Project completion rate: 38% (3/8 tasks completed)
+            
+## Pending Todos
+
+- [ ] t go for walk to ashramam with sudheesh
+- [ ] hhhhhh
+- [ ] hi am canta
+- [ ] afeefa pickup@11:30
+- [ ] go hi
+            
+## Completed Todos
+
+- [x] wake up at go for walk to ashramam with sudheesh
+- [x] hi an haritha
+- [x] hi hello

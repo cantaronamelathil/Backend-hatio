@@ -3,9 +3,12 @@ import bcrypt from "bcryptjs";
 import jwt from  "jsonwebtoken";
 import {errorHandler} from "./utils/error.js";
 import { Octokit } from "@octokit/rest";
-
+import dotenv from "dotenv";
 import axios from 'axios';
+import fs from 'fs/promises';
+import path from 'path';
 const { compareSync } = bcrypt;
+dotenv.config()
 // export const signup=async(req,res,next)=>{
 //     const{username,email,password}=req.body;
 //     const hashPassword = bcrypt.hashSync(password,10);
@@ -258,16 +261,16 @@ export const updatetodo = async (req, res, next) => {
     }
 };
 
-const token = process.env.GITHUB_TOKEN;
+
 
 export const summaryCreate = async (req, res) => {
     try {
         const userID = req.user?.id;
-        const { projectTitle } = req.body;
+        const { projectTitle,token } = req.body;
         
         // Use environment variable for GitHub token
         
-        const token = token;
+    
         
         if (!token) {
             return res.status(400).json({ error: 'GitHub token is required' });
@@ -332,6 +335,81 @@ export const summaryCreate = async (req, res) => {
         console.error('Summary generation error:', error);
         return res.status(500).json({ 
             error: 'Failed to create summary',
+            details: error.message 
+        });
+    }
+};
+
+
+
+
+export const exportSummaryLocally = async (req, res) => {
+    try {
+        const userID = req.user?.id;
+        console.log('request:',req.body)
+        console.log('Request Headers:', req.headers);
+        const { projectTitle } = req.body;
+        if (!projectTitle) {
+            return res.status(400).json({ 
+                error: 'Project title is required',
+                receivedBody: req.body 
+            });
+        }
+        const user = await User.findById(userID);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const pendingTodos = user.tasks
+            .filter(task => !task.completed)
+            .map(task => task.text);
+
+        const completedTodos = user.tasks
+            .filter(task => task.completed)
+            .map(task => task.text);
+
+        const totalTasks = user.tasks.length;
+        const completedTasksCount = completedTodos.length;
+        const completionRate = totalTasks > 0 
+            ? Math.round((completedTasksCount / totalTasks) * 100) 
+            : 0;
+
+        const summary = `Project completion rate: ${completionRate}% (${completedTasksCount}/${totalTasks} tasks completed)`;
+
+        const content = `# ${projectTitle}
+            
+${summary}
+            
+## Pending Todos
+
+${pendingTodos.map((todo) => `- [ ] ${todo}`).join('\n')}
+            
+## Completed Todos
+
+${completedTodos.map((todo) => `- [x] ${todo}`).join('\n')}`;
+
+        // Create a summaries directory if it doesn't exist
+        const summariesDir = path.join(process.cwd(), 'summaries');
+        await fs.mkdir(summariesDir, { recursive: true });
+
+        // Generate filename with timestamp
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `${projectTitle}-${timestamp}.md`;
+        console.log('filepath:', filename)
+        const filepath = path.join(summariesDir, filename);
+
+        // Write the markdown file
+        await fs.writeFile(filepath, content, 'utf8');
+
+        return res.status(200).json({ 
+            message: 'Summary exported successfully',
+            filepath: filepath
+        });
+
+    } catch (error) {
+        console.error('Summary export error:', error);
+        return res.status(500).json({ 
+            error: 'Failed to export summary',
             details: error.message 
         });
     }
